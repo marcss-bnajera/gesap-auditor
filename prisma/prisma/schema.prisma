@@ -1,0 +1,76 @@
+// =============================================
+// GESAP Auditor - Esquema de Base de Datos
+// Maneja logs de auditoria, sesiones, horarios y dispositivos
+// =============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---- LOGS DE AUDITORIA ----
+// Registra cada accion realizada en el sistema
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  userEmail  String   @map("user_email") @db.VarChar(100)
+  action     String   @db.VarChar(50)
+  entity     String   @db.VarChar(50)
+  entityId   Int?     @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+// ---- SESIONES ACTIVAS ----
+// Maneja las sesiones en tiempo real con Socket.io
+model Session {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  userEmail   String   @map("user_email") @db.VarChar(100)
+  socketId    String   @map("socket_id") @db.VarChar(100)
+  deviceInfo  String?  @map("device_info") @db.VarChar(255)
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  isActive    Boolean  @default(true) @map("is_active")
+  connectedAt DateTime @default(now()) @map("connected_at")
+  disconnectedAt DateTime? @map("disconnected_at")
+
+  @@map("sessions")
+}
+
+// ---- HORARIOS DE TRABAJO ----
+// Define los horarios permitidos para cada usuario
+model Schedule {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  dayOfWeek Int      @map("day_of_week")
+  startTime String   @map("start_time") @db.VarChar(5)
+  endTime   String   @map("end_time") @db.VarChar(5)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("schedules")
+}
+
+// ---- DISPOSITIVOS AUTORIZADOS ----
+// Whitelist de dispositivos que pueden acceder al sistema
+model AuthorizedDevice {
+  id           Int      @id @default(autoincrement())
+  deviceName   String   @map("device_name") @db.VarChar(100)
+  macAddress   String   @unique @map("mac_address") @db.VarChar(17)
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  location     String?  @db.VarChar(100)
+  isActive     Boolean  @default(true) @map("is_active")
+  registeredBy Int      @map("registered_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("authorized_devices")
+}
