@@ -4,7 +4,8 @@
 // =============================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -13,7 +14,6 @@ datasource db {
 }
 
 // ---- LOGS DE AUDITORIA ----
-// Registra cada accion realizada en el sistema
 model AuditLog {
   id         Int      @id @default(autoincrement())
   userId     Int      @map("user_id")
@@ -29,23 +29,21 @@ model AuditLog {
 }
 
 // ---- SESIONES ACTIVAS ----
-// Maneja las sesiones en tiempo real con Socket.io
 model Session {
-  id          Int      @id @default(autoincrement())
-  userId      Int      @map("user_id")
-  userEmail   String   @map("user_email") @db.VarChar(100)
-  socketId    String   @map("socket_id") @db.VarChar(100)
-  deviceInfo  String?  @map("device_info") @db.VarChar(255)
-  ipAddress   String?  @map("ip_address") @db.VarChar(45)
-  isActive    Boolean  @default(true) @map("is_active")
-  connectedAt DateTime @default(now()) @map("connected_at")
+  id             Int       @id @default(autoincrement())
+  userId         Int       @map("user_id")
+  userEmail      String    @map("user_email") @db.VarChar(100)
+  socketId       String    @map("socket_id") @db.VarChar(100)
+  deviceInfo     String?   @map("device_info") @db.VarChar(255)
+  ipAddress      String?   @map("ip_address") @db.VarChar(45)
+  isActive       Boolean   @default(true) @map("is_active")
+  connectedAt    DateTime  @default(now()) @map("connected_at")
   disconnectedAt DateTime? @map("disconnected_at")
 
   @@map("sessions")
 }
 
 // ---- HORARIOS DE TRABAJO ----
-// Define los horarios permitidos para cada usuario
 model Schedule {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
@@ -60,7 +58,6 @@ model Schedule {
 }
 
 // ---- DISPOSITIVOS AUTORIZADOS ----
-// Whitelist de dispositivos que pueden acceder al sistema
 model AuthorizedDevice {
   id           Int      @id @default(autoincrement())
   deviceName   String   @map("device_name") @db.VarChar(100)
