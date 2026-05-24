@@ -1,9 +1,3 @@
-// =============================================
-// PatientAccountsService
-// Aprobacion y rechazo de cuentas de pacientes
-// Solo AUDITOR (su hospital) y SUPER_AUDITOR (todas)
-// =============================================
-
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -11,17 +5,46 @@ import { PrismaService } from '../prisma/prisma.service';
 export class PatientAccountsService {
     constructor(private prisma: PrismaService) { }
 
+    // Busca en la tabla patients los datos del DPI para que el auditor pueda verificar
+    private async enrichWithPatientData(accounts: any[]) {
+        const dpis = accounts.map(a => a.dpi);
+        const patients = await this.prisma.patient.findMany({
+            where: { dpi: { in: dpis } },
+            select: {
+                dpi: true,
+                firstName: true,
+                secondName: true,
+                thirdName: true,
+                firstLastName: true,
+                secondLastName: true,
+                birthDate: true,
+                sex: true,
+            },
+        });
+
+        const patientMap = new Map(patients.map(p => [p.dpi, p]));
+
+        return accounts.map(account => ({
+            ...account,
+            patientData: patientMap.get(account.dpi) ?? null,
+        }));
+    }
+
     async findPending() {
-        return this.prisma.patientAccount.findMany({
+        const accounts = await this.prisma.patientAccount.findMany({
             where: { status: 'PENDING' },
             orderBy: { createdAt: 'asc' },
         });
+
+        return this.enrichWithPatientData(accounts);
     }
 
     async findAll() {
-        return this.prisma.patientAccount.findMany({
+        const accounts = await this.prisma.patientAccount.findMany({
             orderBy: { createdAt: 'desc' },
         });
+
+        return this.enrichWithPatientData(accounts);
     }
 
     async approve(id: number, approvedBy: number) {
