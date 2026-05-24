@@ -1,31 +1,35 @@
 // =============================================
 // SchedulesService
-// CRUD de horarios de trabajo
+// CRUD de horarios de trabajo (filtrado por hospital)
 // =============================================
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { HospitalScopedUser, getHospitalScope } from '../common/helpers/hospital-scope.helper';
 
 @Injectable()
 export class SchedulesService {
     constructor(private prisma: PrismaService) { }
 
-    async create(dto: CreateScheduleDto) {
-        return this.prisma.schedule.create({ data: dto });
+    async create(currentUser: HospitalScopedUser, dto: CreateScheduleDto) {
+        const scope = getHospitalScope(currentUser);
+        return this.prisma.schedule.create({ data: { ...dto, ...scope } });
     }
 
-    async findAll() {
+    async findAll(currentUser: HospitalScopedUser) {
+        const scope = getHospitalScope(currentUser);
         return this.prisma.schedule.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...scope },
             orderBy: [{ userId: 'asc' }, { dayOfWeek: 'asc' }],
         });
     }
 
-    async findByUser(userId: number) {
+    async findByUser(currentUser: HospitalScopedUser, userId: number) {
+        const scope = getHospitalScope(currentUser);
         return this.prisma.schedule.findMany({
-            where: { userId, isActive: true },
+            where: { userId, isActive: true, ...scope },
             orderBy: { dayOfWeek: 'asc' },
         });
     }
@@ -41,9 +45,6 @@ export class SchedulesService {
         const schedule = await this.prisma.schedule.findUnique({ where: { id } });
         if (!schedule) throw new NotFoundException(`Horario con ID ${id} no encontrado`);
 
-        return this.prisma.schedule.update({
-            where: { id },
-            data: { isActive: false },
-        });
+        return this.prisma.schedule.update({ where: { id }, data: { isActive: false } });
     }
 }

@@ -7,12 +7,13 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
+import { HospitalScopedUser, getHospitalScope } from '../common/helpers/hospital-scope.helper';
 
 @Injectable()
 export class DevicesService {
     constructor(private prisma: PrismaService) { }
 
-    async register(registeredBy: number, dto: RegisterDeviceDto) {
+    async register(currentUser: HospitalScopedUser & { id: number }, dto: RegisterDeviceDto) {
         const exists = await this.prisma.authorizedDevice.findUnique({
             where: { macAddress: dto.macAddress },
         });
@@ -21,20 +22,24 @@ export class DevicesService {
             throw new ConflictException('Ya existe un dispositivo con esa direccion MAC');
         }
 
+        const scope = getHospitalScope(currentUser);
         return this.prisma.authorizedDevice.create({
-            data: { ...dto, registeredBy },
+            data: { ...dto, registeredBy: currentUser.id, ...scope },
         });
     }
 
-    async findAll() {
+    async findAll(currentUser: HospitalScopedUser) {
+        const scope = getHospitalScope(currentUser);
         return this.prisma.authorizedDevice.findMany({
+            where: scope,
             orderBy: { createdAt: 'desc' },
         });
     }
 
-    async findActive() {
+    async findActive(currentUser: HospitalScopedUser) {
+        const scope = getHospitalScope(currentUser);
         return this.prisma.authorizedDevice.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...scope },
             orderBy: { deviceName: 'asc' },
         });
     }
@@ -56,12 +61,10 @@ export class DevicesService {
         });
     }
 
-    // Verificar si un dispositivo esta autorizado
     async isAuthorized(macAddress: string): Promise<boolean> {
         const device = await this.prisma.authorizedDevice.findUnique({
             where: { macAddress },
         });
-
         return device?.isActive ?? false;
     }
 }

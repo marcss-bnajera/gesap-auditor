@@ -6,12 +6,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilterAuditLogDto } from './dto/filter-audit-log.dto';
+import { HospitalScopedUser, getHospitalScope } from '../common/helpers/hospital-scope.helper';
 
 @Injectable()
 export class AuditLogsService {
     constructor(private prisma: PrismaService) { }
 
-    // Registrar una accion en el log
     async create(data: {
         userId: number;
         userEmail: string;
@@ -20,19 +20,19 @@ export class AuditLogsService {
         entityId?: number;
         details?: any;
         ipAddress?: string;
+        hospitalId?: number | null;
     }) {
         return this.prisma.auditLog.create({ data });
     }
 
-    // Listar logs con filtros opcionales
-    async findAll(filters: FilterAuditLogDto) {
-        const where: any = {};
+    async findAll(currentUser: HospitalScopedUser, filters: FilterAuditLogDto) {
+        const scope = getHospitalScope(currentUser);
+        const where: any = { ...scope };
 
         if (filters.userId) where.userId = filters.userId;
         if (filters.action) where.action = filters.action;
         if (filters.entity) where.entity = filters.entity;
 
-        // Filtro por rango de fechas
         if (filters.startDate || filters.endDate) {
             where.createdAt = {};
             if (filters.startDate) where.createdAt.gte = new Date(filters.startDate);
@@ -42,14 +42,16 @@ export class AuditLogsService {
         return this.prisma.auditLog.findMany({
             where,
             orderBy: { createdAt: 'desc' },
-            take: 100, // Limitar a 100 registros por consulta
+            take: 100,
         });
     }
 
-    // Obtener resumen de acciones por usuario
-    async getSummary() {
+    async getSummary(currentUser: HospitalScopedUser) {
+        const scope = getHospitalScope(currentUser);
+
         const logs = await this.prisma.auditLog.groupBy({
             by: ['userEmail', 'action'],
+            where: scope,
             _count: { id: true },
             orderBy: { _count: { id: 'desc' } },
         });
