@@ -76,7 +76,7 @@ export class UsersController {
     @Roles('AUDITOR', 'SUPER_AUDITOR')
     toggleActive(
         @Param('id', ParseIntPipe) id: number,
-        @CurrentUser() currentUser: HospitalScopedUser,
+        @CurrentUser() currentUser: HospitalScopedUser & { id: number },
     ) {
         return this.usersService.toggleActive(id, currentUser);
     }

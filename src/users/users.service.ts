@@ -115,13 +115,23 @@ export class UsersService {
         return result;
     }
 
-    async toggleActive(id: number, currentUser: HospitalScopedUser) {
-        await this.findOne(id, currentUser);
+    async toggleActive(id: number, currentUser: HospitalScopedUser & { id: number }) {
+        if (currentUser.id === id) {
+            throw new ForbiddenException('No puedes desactivarte a ti mismo');
+        }
 
-        const user = await this.prisma.user.findUnique({ where: { id } });
+        const target = await this.findOne(id, currentUser) as { role: { name: string }; isActive: boolean };
+
+        if (currentUser.roleName === 'AUDITOR') {
+            const protectedRoles = ['AUDITOR', 'SUPER_AUDITOR'];
+            if (protectedRoles.includes(target.role.name)) {
+                throw new ForbiddenException('No tienes permisos para modificar a este usuario');
+            }
+        }
+
         const updated = await this.prisma.user.update({
             where: { id },
-            data: { isActive: !user!.isActive },
+            data: { isActive: !target.isActive },
         });
 
         return {
