@@ -1,8 +1,3 @@
-// =============================================
-// AuditLogsService
-// Registra y consulta las acciones realizadas en el sistema
-// =============================================
-
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilterAuditLogDto } from './dto/filter-audit-log.dto';
@@ -30,20 +25,35 @@ export class AuditLogsService {
         const where: any = { ...scope };
 
         if (filters.userId) where.userId = filters.userId;
-        if (filters.action) where.action = filters.action;
-        if (filters.entity) where.entity = filters.entity;
+        if (filters.action) where.action = { contains: filters.action, mode: 'insensitive' };
+        if (filters.entity) where.entity = { contains: filters.entity, mode: 'insensitive' };
 
-        if (filters.startDate || filters.endDate) {
+        if (filters.from || filters.to) {
             where.createdAt = {};
-            if (filters.startDate) where.createdAt.gte = new Date(filters.startDate);
-            if (filters.endDate) where.createdAt.lte = new Date(filters.endDate + 'T23:59:59');
+            if (filters.from) where.createdAt.gte = new Date(filters.from);
+            if (filters.to) where.createdAt.lte = new Date(filters.to + 'T23:59:59');
         }
 
-        return this.prisma.auditLog.findMany({
+        const logs = await this.prisma.auditLog.findMany({
             where,
+            include: {
+                hospital: { select: { id: true, name: true } },
+            },
             orderBy: { createdAt: 'desc' },
-            take: 100,
+            take: 200,
         });
+
+        if (logs.length === 0) return [];
+
+        // Join de usuario manual (audit_logs no tiene FK a users para preservar histórico)
+        const userIds = [...new Set(logs.map((l) => l.userId))];
+        const users = await this.prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: { id: true, firstName: true, lastName: true, email: true },
+        });
+        const userMap = new Map(users.map((u) => [u.id, u]));
+
+        return logs.map((l) => ({ ...l, user: userMap.get(l.userId) ?? null }));
     }
 
     async getSummary(currentUser: HospitalScopedUser) {
