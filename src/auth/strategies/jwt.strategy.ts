@@ -29,6 +29,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             throw new UnauthorizedException('Usuario no encontrado o desactivado');
         }
 
+        // Verificar que la sesion sigue activa (kick detection)
+        try {
+            const activeSession = await this.prisma.loginSession.findFirst({
+                where: { userId: user.id, isActive: true },
+            });
+            if (!activeSession) {
+                throw new UnauthorizedException('Tu sesión ha sido cerrada. Por favor inicia sesión nuevamente.');
+            }
+        } catch (err) {
+            if (err instanceof UnauthorizedException) throw err;
+            // Si la tabla no existe o hay error de BD, no bloquear la request
+        }
+
         return {
             id: user.id,
             email: user.email,
