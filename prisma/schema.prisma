@@ -78,8 +78,26 @@ model User {
   emergenciesCreated          Emergency[]           @relation("EmergencyCreator")
   emergenciesAssigned         Emergency[]           @relation("EmergencyAssignee")
   unidentifiedPatientsCreated UnidentifiedPatient[]
+  loginSessions               LoginSession[]
 
   @@map("users")
+}
+
+// ---- SESIONES DE LOGIN (HTTP) ----
+model LoginSession {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
+  token        String    @db.Text
+  ipAddress    String?   @map("ip_address") @db.VarChar(45)
+  userAgent    String?   @map("user_agent") @db.Text
+  hospitalId   Int?      @map("hospital_id")
+  isActive     Boolean   @default(true) @map("is_active")
+  loginAt      DateTime  @default(now()) @map("login_at")
+  lastActiveAt DateTime  @default(now()) @map("last_active_at") @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@map("login_sessions")
 }
 
 model Patient {
